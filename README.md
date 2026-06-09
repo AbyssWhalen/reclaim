@@ -10,7 +10,7 @@
 [![Rust](https://img.shields.io/badge/Rust-1.85%2B-orange.svg?logo=rust)](https://www.rust-lang.org)
 [![CI](https://github.com/AbyssWhalen/reclaim/actions/workflows/ci.yml/badge.svg)](https://github.com/AbyssWhalen/reclaim/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)](#-平台支持)
-[![Tests](https://img.shields.io/badge/tests-37%20passing-brightgreen.svg)](#-开发与测试)
+[![Tests](https://img.shields.io/badge/tests-41%20passing-brightgreen.svg)](#-开发与测试)
 
 </div>
 
@@ -59,7 +59,23 @@
 
 ## 📦 安装
 
-目前从源码构建（暂未发布到 crates.io）。需要 [Rust 工具链](https://rustup.rs)（1.85+，因使用 2024 edition）。
+### 方式一：下载预编译版（Windows，新手推荐）
+
+1. 到 [Releases](https://github.com/AbyssWhalen/reclaim/releases/latest) 下载 `reclaim-vX.Y.Z-windows-x64.exe`。
+
+2. **重命名为 `reclaim.exe`**。下载下来的文件名带版本号（方便区分多版本），但要在命令行里敲 `reclaim` 调用，得先把它改名成 `reclaim.exe`。
+
+3. **首次运行时 Windows 可能弹「Windows 已保护你的电脑」蓝色警告框**。这是因为本程序未购买代码签名证书，并非有毒——它开源、可自行编译核对。点警告框里的 **「更多信息」→「仍要运行」** 即可。不放心的话，走下面的方式二自己从源码编译。
+
+4. **（可选）加入 PATH，让任意目录都能敲 `reclaim`**：
+   - 把 `reclaim.exe` 放到一个固定目录，例如 `C:\Tools\`。
+   - 按 `Win` 键搜「编辑系统环境变量」→ 打开 →「环境变量」按钮 → 在「用户变量」里选中 `Path` →「编辑」→「新建」→ 填入 `C:\Tools` → 一路确定。
+   - **重开终端**（PowerShell / CMD），敲 `reclaim --help` 验证。
+   - 不加 PATH 也能用，只是得用完整路径调用，例如 `C:\Tools\reclaim.exe --help`。
+
+### 方式二：从源码编译（任意平台）
+
+需要 [Rust 工具链](https://rustup.rs)（1.85+，因使用 2024 edition）。
 
 ```bash
 git clone https://github.com/AbyssWhalen/reclaim.git
@@ -68,7 +84,7 @@ cargo build --release
 # 产物在 target/release/reclaim(.exe)
 ```
 
-可选：把二进制加入 PATH，或 `cargo install --path .` 装到本地 cargo bin。
+可选：`cargo install --path .` 直接装到本地 cargo bin（已在 PATH 中）。
 
 ## 🚀 用法
 
@@ -90,23 +106,28 @@ reclaim --json D:\code
 
 # 永久删除而非进回收站（不可恢复，慎用）
 reclaim --force D:\code
+
+# 无人值守地永久删除全部扫描结果（最危险组合）。
+# --force + --yes 会被安全闸门拦下，必须再加 --really 才放行：
+reclaim --force --yes --really D:\code
 ```
 
-### 预演输出示例（真实运行）
+### 预演输出示例（数据来自真实运行，路径为简化示意）
 
 ```text
 $ reclaim --yes --dry-run
-正在扫描 1 个根目录…
-发现 4 项，正在计算大小…
-将删除（预演）        1 MB  …\my-py\__pycache__
-将删除（预演）        5 MB  …\my-web\node_modules
-将删除（预演）        3 MB  …\my-rust-app\target
-将删除（预演）        8 MB  …\my-py\.venv
+正在扫描 1 个根目录… / Scanning 1 root(s)…
+发现 4 项，正在计算大小… / Found 4 item(s), measuring size…
+将删除(预演) / would delete        5 MB  …\my-web\node_modules
+将删除(预演) / would delete        3 MB  …\my-rust-app\target
+将删除(预演) / would delete        8 MB  …\my-py\.venv
+将删除(预演) / would delete        1 MB  …\my-py\__pycache__
 
 完成：4 项，预计可释放 17 MB。（预演模式，未实际删除）
+Done: 4 item(s), would free 17 MB. (dry-run, nothing deleted)
 ```
 
-### JSON 输出示例（真实运行，节选）
+### JSON 输出示例（数据来自真实运行，路径为示意，节选）
 
 ```json
 {
@@ -118,13 +139,13 @@ $ reclaim --yes --dry-run
   },
   "findings": [
     {
-      "path": ".\\my-rust-app\\target",
+      "path": "D:\\code\\my-rust-app\\target",
       "ecosystem": "Rust",
       "target": "target",
       "note": "Cargo 构建产物，可由 cargo build 重建",
       "caution": false,
       "size": 3000000,
-      "newest_mtime_secs": 1780977349
+      "newest_mtime_secs": 1781009151
     }
   ]
 }
@@ -145,9 +166,12 @@ Options:
       --dry-run                预演模式：只显示将要删除什么，不真正删除。
       --force                  永久删除而非移入回收站（不可恢复，慎用）。
       --yes                    跳过 TUI，直接处理所有扫描到的项。仍受安全校验保护。
+      --really                 确认无人值守的永久删除。仅在 --force --yes 同时使用时需要。
   -h, --help                   Print help
   -V, --version                Print version
 ```
+
+> 所有面向用户的提示与错误信息均为中英双语输出（上方为简洁起见只列中文）。
 
 ## 🛡️ 安全设计
 
@@ -159,6 +183,8 @@ Options:
 4. **系统黑名单 + 用户主目录** — 大小写不敏感地拒绝 `Windows`、`Program Files`、`System32` 等关键目录，以及用户主目录本身。
 
 再加两层兜底：默认走**回收站**（可恢复），`--dry-run` 可随时**预演**。
+
+此外还有一道**危险组合闸门**：`--force`（永久删）与 `--yes`（跳过交互）同时使用，意味着「无人确认地永久删除一切」——这种组合会被直接拒绝，必须再显式追加 `--really` 才放行，避免从文档或聊天里整条复制命令时手滑清空磁盘。
 
 ## 🧩 支持的生态
 
@@ -184,7 +210,7 @@ Options:
 
 | 平台 | 状态 |
 |---|---|
-| **Windows** | ✅ 已开发并测试（37 项测试通过，含真实删除验证） |
+| **Windows** | ✅ 已开发并测试（41 项测试通过，含真实删除验证） |
 | Linux / macOS | ⚠️ 应可编译，但**未经测试**；且当前安全黑名单偏 Windows（`System32` 等），跨平台前需补充 Unix 系统目录规则与路径用例 |
 
 跨平台适配已列入 Roadmap，欢迎 PR。
@@ -192,7 +218,7 @@ Options:
 ## 🧪 开发与测试
 
 ```bash
-cargo test            # 运行全部测试（37 项：单元 + 集成）
+cargo test            # 运行全部测试（41 项：单元 + 集成）
 cargo clippy          # lint
 cargo fmt             # 格式化
 ```

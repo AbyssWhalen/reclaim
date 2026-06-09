@@ -1,6 +1,6 @@
 [package]
 name = "reclaim"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["AbyssWhalen"]
 description = "上下文感知的项目垃圾清理器：扫出 node_modules / target / __pycache__ 等构建产物，按大小排序，交互勾选后移入回收站。Context-aware project junk cleaner."

@@ -183,15 +183,34 @@ pub static RULES: &[Rule] = &[
     },
 ];
 
+/// .NET 的 bin/obj 是后缀型命中时返回的规则实例。
+/// 单独定义成静态，供 SUFFIX_MARKERS 直接引用——这样新增后缀标记时
+/// 编译器强制要求就地给出对应规则，杜绝「忘记更新分支」导致的运行时 panic。
+static DOTNET_BIN: Rule = Rule {
+    ecosystem: ".NET",
+    target: "bin",
+    markers: &[],
+    caution: false,
+    note: ".NET 编译输出",
+};
+static DOTNET_OBJ: Rule = Rule {
+    ecosystem: ".NET",
+    target: "obj",
+    markers: &[],
+    caution: false,
+    note: ".NET 中间产物",
+};
+
 /// 后缀型标记：某些 target 目录（如 .NET 的 bin/obj）的判定不依赖固定文件名，
-/// 而是兄弟文件中存在某个**扩展名**。这里列出 (target, 后缀, 生态) 三元组。
-static SUFFIX_MARKERS: &[(&str, &str, &str)] = &[
-    ("bin", ".csproj", ".NET"),
-    ("bin", ".fsproj", ".NET"),
-    ("bin", ".vbproj", ".NET"),
-    ("obj", ".csproj", ".NET"),
-    ("obj", ".fsproj", ".NET"),
-    ("obj", ".vbproj", ".NET"),
+/// 而是兄弟文件中存在某个**扩展名**。这里列出 (target, 后缀, 命中时返回的规则) 三元组。
+/// 每条都直接携带规则引用，命中即返回，无需二次查表。
+static SUFFIX_MARKERS: &[(&str, &str, &Rule)] = &[
+    ("bin", ".csproj", &DOTNET_BIN),
+    ("bin", ".fsproj", &DOTNET_BIN),
+    ("bin", ".vbproj", &DOTNET_BIN),
+    ("obj", ".csproj", &DOTNET_OBJ),
+    ("obj", ".fsproj", &DOTNET_OBJ),
+    ("obj", ".vbproj", &DOTNET_OBJ),
 ];
 
 /// 快速预筛：目录名是否可能命中某条规则（含后缀型）。
@@ -229,37 +248,13 @@ pub fn match_junk(dir_name: &str, siblings: &[String]) -> Option<&'static Rule> 
     }
 
     // 再看后缀型标记（如 .NET bin/obj 旁边有 *.csproj）
-    for &(target, suffix, ecosystem) in SUFFIX_MARKERS {
+    for &(target, suffix, rule) in SUFFIX_MARKERS {
         if target == dir_name && siblings.iter().any(|s| s.ends_with(suffix)) {
-            // 用一个静态规则返回。由于 Rule 含 &'static str 字段，
-            // 这里构造一条静态描述即可。
-            return Some(suffix_rule(target, ecosystem));
+            return Some(rule);
         }
     }
 
     None
-}
-
-/// 为后缀型命中返回一条静态规则描述。
-fn suffix_rule(target: &str, ecosystem: &str) -> &'static Rule {
-    // 匹配到具体生态/目录，返回对应静态实例。
-    match (ecosystem, target) {
-        (".NET", "bin") => &Rule {
-            ecosystem: ".NET",
-            target: "bin",
-            markers: &[],
-            caution: false,
-            note: ".NET 编译输出",
-        },
-        (".NET", "obj") => &Rule {
-            ecosystem: ".NET",
-            target: "obj",
-            markers: &[],
-            caution: false,
-            note: ".NET 中间产物",
-        },
-        _ => unreachable!("suffix_rule 收到未登记的组合: {ecosystem}/{target}"),
-    }
 }
 
 #[cfg(test)]
