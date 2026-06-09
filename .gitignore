@@ -1,0 +1,26 @@
+# Rust 构建产物
+/target
+
+# 二进制 crate 提交 Cargo.lock 以保证可复现构建，故不忽略它
+
+# 调试与崩溃转储
+*.pdb
+*.dmp
+
+# 操作系统杂物
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# 编辑器 / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 环境与密钥（防呆，本项目本不该有）
+.env
+.env.*
+*.key
+*.pem
